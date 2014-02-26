@@ -1,0 +1,13 @@
+{application, hex_tellstick,
+ [
+  {description, "Tellstick plugin for HEX"},
+  {vsn, git},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+		  hex,
+		  tellstick
+		  ]},
+  {mod, { hex_tellstick_app, []}}
+ ]}.
