@@ -2,7 +2,7 @@
  [
   {description, "Tellstick plugin for HEX"},
   {vsn, git},
-  {registered, []},
+  {registered, [hex_tellstick_server]},
   {applications, [
                   kernel,
                   stdlib,

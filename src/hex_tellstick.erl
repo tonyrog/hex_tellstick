@@ -90,6 +90,7 @@ init_event(out,_Flags) ->
 %% validate_event(in | out, Flags::[{atom(),term()}])
 %%
 validate_event(in, _Flags) ->
+    %% check known protocols and models etc?
     ok;
 validate_event(out, Flags) ->
     Protocol = proplists:get_value(protocol,Flags),

@@ -82,7 +82,8 @@ handle_call({add_event,Flags,Signal}, _From, State) ->
     case tellstick_server:subscribe(Flags) of
 	{ok,Ref} ->
 	    Subs = [{Ref,Signal}|State#state.subs],
-	    {reply, ok, State#state { subs = Subs }};
+	    lager:debug("added signal ref=~p, flags=~p", [Ref,Flags]),
+	    {reply, {ok,Ref}, State#state { subs = Subs }};
 	Error ->
 	    {reply, Error, State}
     end;
@@ -124,11 +125,15 @@ handle_cast(_Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({tellstick_event,Ref,EventData}, State) ->
+    lager:debug("tellstick_event: ref=~p, event=~p", [Ref, EventData]),
     case lists:keyfind(Ref, 1, State#state.subs) of
 	false ->
+	    lager:warning("event ~p not found", [EventData]),
 	    {noreply, State};
 	{_,Signal} ->
-	    hex_server ! Signal
+	    lager:debug("event signal: ~p", [Signal]),
+	    hex_server:event(Signal, EventData),
+	    {noreply, State}
     end;
 handle_info(_Info, State) ->
     io:format("got info ~p\n", [_Info]),

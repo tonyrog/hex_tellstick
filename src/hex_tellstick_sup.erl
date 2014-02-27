@@ -23,5 +23,8 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    Server = {hex_tellstick_server, {hex_tellstick_server, start_link, []},
+	      permanent, 5000, worker, [hex_tellstick_server]},
+    {ok, { {one_for_one,3,5}, [Server]} }.
+
 
