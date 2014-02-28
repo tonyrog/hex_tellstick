@@ -6,7 +6,6 @@
   {applications, [
                   kernel,
                   stdlib,
-		  hex,
 		  tellstick
 		  ]},
   {mod, { hex_tellstick_app, []}}
