@@ -1,8 +1,9 @@
 Tellstick plugin to HEX
 =======================
 
+# input events 
 
-# Config input events (tellstick duo)
+TellStick duo and TellStick net (from rev 17) supports input events.
 
     [{protocol,archtech},{model,codeswitch},{data,uint32()}]
 
@@ -21,7 +22,7 @@ Tellstick plugin to HEX
     [{protocol,"hasta"},{model,"selflearningv2",{data,uint32()]]
 
 
-# Config output events
+# Output events
 
     [{protocol,nexa},{unit,$A..$P},{channel,1..16},{dimmer,boolean()}]
 
