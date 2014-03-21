@@ -108,80 +108,39 @@ validate_event(in, _Flags) ->
     %% check known protocols and models etc?
     ok;
 validate_event(out, Flags) ->
-    Protocol = proplists:get_value(protocol,Flags),
-    validate_protocol(Protocol, Flags).
+    Spec = output_spec(proplists:get_value(protocol,Flags)),
+    hex:validate_flags(Flags, Spec).
 
-
-validate_protocol(nexa,Flags) ->
-    Unit = proplists:get_value(unit,Flags),
-    Chan = proplists:get_value(channel,Flags),
-    Dimmer = proplists:get_value(dimmer,Flags,false),
-    if  Unit =:= undefined -> {error, {mandatory,[unit]}};
-	Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Unit) -> {error, {badarg,unit}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Unit < $A, Unit > $P -> {error, {erange, unit}};
-	Chan < 1,  Chan > 16 -> {error, {erange, channel}};
-	not is_boolean(Dimmer) -> {error, {erange, dimmer}};
-	true -> ok
-    end;
-validate_protocol(nexax,Flags) ->
-    Unit = proplists:get_value(unit,Flags),
-    Chan = proplists:get_value(channel,Flags),
-    if  Unit =:= undefined -> {error, {mandatory,[unit]}};
-	Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Unit) -> {error, {badarg,unit}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Unit < 0,  Unit > 16#3fffffff -> {error, {erange, unit}};
-	Chan < 1,  Chan > 16 -> {error, {erange, channel}};
-	true -> ok
-    end;
-validate_protocol(waveman,Flags) ->
-    Unit = proplists:get_value(unit,Flags),
-    Chan = proplists:get_value(channel,Flags),
-    if  Unit =:= undefined -> {error, {mandatory,[unit]}};
-	Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Unit) -> {error, {badarg,unit}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Unit < $A, Unit > $P -> {error, {erange, unit}};
-	Chan < 1,  Chan > 16 -> {error, {erange, channel}};
-	true -> ok
-    end;
-validate_protocol(sartano,Flags) ->
-    Chan = proplists:get_value(channel,Flags),
-    if  Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Chan < 1,  Chan > 16#3ff -> {error, {erange, channel}};
-	true -> ok
-    end;
-validate_protocol(ikea,Flags) ->
-    Unit = proplists:get_value(unit,Flags),
-    Chan = proplists:get_value(channel,Flags),
-    Dimmer = proplists:get_value(dimmer,Flags,false),
-    Style  = proplists:get_value(style, Flags, smooth),
-    if  Unit =:= undefined -> {error, {mandatory,[unit]}};
-	Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Unit) -> {error, {badarg,unit}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Unit < $A, Unit > $P -> {error, {erange, unit}};
-	Chan < 1,  Chan > 16 -> {error, {erange, channel}};
-	not is_boolean(Dimmer) -> {error, {erange, dimmer}};
-	Style =/= smooth, Style =/= instant -> {error, {erange, style}};
-	true -> ok
-    end;
-validate_protocol(risingsun,Flags) ->
-    Unit = proplists:get_value(unit,Flags),
-    Chan = proplists:get_value(channel,Flags),
-    if  Unit =:= undefined -> {error, {mandatory,[unit]}};
-	Chan =:= undefined -> {error, {mandatory,[channel]}};
-	not is_integer(Unit) -> {error, {badarg,unit}};
-	not is_integer(Chan) -> {error, {badarg,channel}};
-	Unit < 1, Unit  > 4 -> {error, {erange, unit}};
-	Chan < 1,  Chan > 4 -> {error, {erange, channel}};
-	true -> ok
-    end;
-validate_protocol(undefined, _Flags) ->
-    {error, {mandatory,[protocol]}};
-validate_protocol(Protocol, _Flags) ->
-    {error, {unsupported_protocol, Protocol}}.
-    
+output_spec(nexa) ->
+    [{protocol,mandatory,{const,nexa},undefined},
+     {unit,mandatory,{integer,$A,$P},$A},
+     {channel,mandatory,{integer,1,16},1},
+     {optional,dimmer,boolean,false}];
+output_spec(nexax) ->
+    [{protocol,mandatory,{const,nexax},undefined},
+     {unit,mandatory,{integer,0,16#3fffffff},$A},
+     {channel,mandatory,{integer,1,16},1}];
+output_spec(waveman) ->
+    [{protocol,mandatory,{const,waveman},undefined},
+     {unit,mandatory,{integer,$A,$P},$A},
+     {channel,mandatory,{integer,1,16},1}];
+output_spec(sartano) ->
+    [{protocol,mandatory,{const,sartano},undefined},
+     {channel,mandatory,{integer,1,16#3ff},0}];
+output_spec(ikea) ->
+    [{protocol,mandatory,{const,ikea},undefined},
+     {unit,mandatory,{integer,$A,$P},$A},
+     {channel,mandatory,{integer,1,16},1},
+     {dimmer,optional,boolean,false},
+     {style,optional,{alt,[{const,smooth},{const,instant}]},smooth}];
+output_spec(risingsun) ->
+    [{protocol,mandatory,{const,risingsun},undefined},
+     {unit,mandatory,{integer,1,4},1},
+     {channel,mandatory,{integer,1,4},1}];
+output_spec(_) ->
+    [{protocol,mandatory,
+      {alt,[{const,nexa},
+	    {const,nexax},
+	    {const,sartano},
+	    {const,ikea},
+	    {const,risingsun}]},undefined}].

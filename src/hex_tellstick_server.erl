@@ -35,15 +35,25 @@
 
 -define(SERVER, ?MODULE).
 
+-record(sub,
+	{
+	  ref :: reference(),   %% monitor/ref
+	  tref :: reference(),  %% tellstick ref
+	  flags :: [{atom(),term()}],
+	  signal :: term(),
+	  callback :: atom() | function()
+	}).
+
 -record(state, {
-	  subs = [] :: [{Ref::reference(),Signal::term()}]
+	  joined = false :: boolean(),
+	  subs = [] :: [#sub{}]
 	 }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 add_event(Flags, Signal,Cb) ->
-    gen_server:call(?MODULE, {add_event, Flags, Signal, Cb}).
+    gen_server:call(?MODULE, {add_event, self(), Flags, Signal, Cb}).
 
 del_event(Ref) ->
     gen_server:call(?MODULE, {del_event, Ref}).
@@ -77,7 +87,8 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    Joined = hex:auto_join(hex_tellstick),
+    {ok, #state{ joined = Joined }}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -93,21 +104,28 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_event,Flags,Signal,Cb}, _From, State) ->
+handle_call({add_event,Pid,Flags,Signal,Cb}, _From, State) ->
     case tellstick_server:subscribe(Flags) of
-	{ok,Ref} ->
-	    Subs = [{Ref,Signal,Cb}|State#state.subs],
+	{ok,TRef} ->
+	    Ref = erlang:monitor(process,Pid),
+	    Sub = #sub { ref = Ref,
+			 tref = TRef,
+			 flags = Flags,
+			 signal = Signal,
+			 callback = Cb },
+	    Subs = [Sub|State#state.subs],
 	    lager:debug("added signal ref=~p, flags=~p", [Ref,Flags]),
 	    {reply, {ok,Ref}, State#state { subs = Subs }};
 	Error ->
 	    {reply, Error, State}
     end;
 handle_call({del_event,Ref}, _From, State) ->
-    case lists:keytake(Ref, 1, State#state.subs) of
+    case lists:keytake(Ref, #sub.ref, State#state.subs) of
 	false ->
 	    {reply, {error, enoent}, State};
-	{value,_Sub, Subs} ->
-	    Res = tellstick_server:unsubscribe(Ref),
+	{value,Sub,Subs} ->
+	    erlang:demonitor(Sub#sub.ref, [flush]),
+	    Res = tellstick_server:unsubscribe(Sub#sub.tref),
 	    {reply, Res, State#state { subs = Subs }}
     end;
 handle_call(stop, _From, State) ->
@@ -139,19 +157,28 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({tellstick_event,Ref,EventData}, State) ->
-    lager:debug("tellstick_event: ref=~p, event=~p", [Ref, EventData]),
-    case lists:keyfind(Ref, 1, State#state.subs) of
+handle_info({tellstick_event,TRef,EventData}, State) ->
+    lager:debug("tellstick_event: ref=~p, event=~p", [TRef, EventData]),
+    case lists:keyfind(TRef, #sub.tref, State#state.subs) of
 	false ->
 	    lager:warning("event ~p not found", [EventData]),
 	    {noreply, State};
-	{_,Signal,Cb} ->
+	#sub { signal=Signal, callback=Cb } ->
 	    lager:debug("event signal: ~p", [Signal]),
 	    callback(Cb, Signal, EventData),
 	    {noreply, State}
     end;
+handle_info({'DOWN',Ref,process,_Pid,_Reason}, State) ->
+    lager:debug("monitor DOWN ~p ~p", [_Pid,_Reason]),
+    case lists:keytake(Ref, #sub.ref, State#state.subs) of
+	false ->
+	    {noeply,State};
+	{value,Sub,Subs} ->
+	    tellstick_server:unsubscribe(Sub#sub.tref),
+	    {noreply,State#state{subs=Subs}}
+    end;
 handle_info(_Info, State) ->
-    io:format("got info ~p\n", [_Info]),
+    lager:debug("unhandled info ~p", [_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
