@@ -26,7 +26,9 @@
 -behaviour(hex_plugin).
 
 -export([validate_event/2, 
+	 event_spec/1,
 	 init_event/2,
+	 mod_event/2,
 	 add_event/3, 
 	 del_event/1, 
 	 output/2]).
@@ -48,8 +50,12 @@ del_event(Ref) ->
 %%    ok.
 %%
 output(Flags, Env) ->
-    Protocol = proplists:get_value(protocol,Flags),
-    output_protocol(Protocol, Flags, Env).
+    case proplists:get_value(protocol,Flags) of
+	{Protocol,PFlags} ->
+	    output_protocol(Protocol, PFlags, Env);
+	_ ->
+	    lager:error("protocol format error")
+    end.
 
 output_protocol(nexa, Flags, Env) ->
     Unit = proplists:get_value(unit,Flags),
@@ -101,6 +107,9 @@ init_event(in,_Flags) ->
 init_event(out,_Flags) ->
     ok.
 
+mod_event(_Dir,_Flags) ->
+    ok.
+
 %%
 %% validate_event(in | out, Flags::[{atom(),term()}])
 %%
@@ -108,39 +117,73 @@ validate_event(in, _Flags) ->
     %% check known protocols and models etc?
     ok;
 validate_event(out, Flags) ->
-    Spec = output_spec(proplists:get_value(protocol,Flags)),
-    hex:validate_flags(Flags, Spec).
+    hex:validate_flags(Flags, event_spec(out)).
+    
 
-output_spec(nexa) ->
-    [{protocol,mandatory,{const,nexa},undefined},
-     {unit,mandatory,{integer,$A,$P},$A},
-     {channel,mandatory,{integer,1,16},1},
-     {optional,dimmer,boolean,false}];
-output_spec(nexax) ->
-    [{protocol,mandatory,{const,nexax},undefined},
-     {unit,mandatory,{integer,0,16#3fffffff},$A},
-     {channel,mandatory,{integer,1,16},1}];
-output_spec(waveman) ->
-    [{protocol,mandatory,{const,waveman},undefined},
-     {unit,mandatory,{integer,$A,$P},$A},
-     {channel,mandatory,{integer,1,16},1}];
-output_spec(sartano) ->
-    [{protocol,mandatory,{const,sartano},undefined},
-     {channel,mandatory,{integer,1,16#3ff},0}];
-output_spec(ikea) ->
-    [{protocol,mandatory,{const,ikea},undefined},
-     {unit,mandatory,{integer,$A,$P},$A},
-     {channel,mandatory,{integer,1,16},1},
-     {dimmer,optional,boolean,false},
-     {style,optional,{alt,[{const,smooth},{const,instant}]},smooth}];
-output_spec(risingsun) ->
-    [{protocol,mandatory,{const,risingsun},undefined},
-     {unit,mandatory,{integer,1,4},1},
-     {channel,mandatory,{integer,1,4},1}];
-output_spec(_) ->
-    [{protocol,mandatory,
-      {alt,[{const,nexa},
-	    {const,nexax},
-	    {const,sartano},
-	    {const,ikea},
-	    {const,risingsun}]},undefined}].
+event_spec(in) ->
+    [];
+event_spec(out) ->
+    [{choice,protocol,
+      [{'case',nexa,
+	[{container,nexa,
+	  [{leaf,unit,[{type,uint8,[{range,[{$A,$P}],[]}]},
+		       {default,$A,[]}]},
+	   {leaf,channel,[{type,uint8,[{range,[{1,16}],[]}]},
+			  {default,1,[]}]},
+	   {leaf,dimmer,[{type,boolean,[]},
+			 {default,false,[]}]}
+	  ]}
+	]},
+
+       {'case',nexax,
+	[{container,nexax,
+	  [{leaf,unit,[{type,uint32,[{range,[{0,16#3fffffff}],[]}]},
+		       {default,0,[]}]},
+	   {leaf,channel,[{type,uint8,[{range,[{1,16}],[]}]},
+			  {default,1,[]}]}
+	  ]}
+	]},
+
+       {'case',waveman,
+	[{container,waveman,
+	  [{leaf,unit,[{type,uint8,[{range,[{$A,$P}],[]}]},
+		       {default,$A,[]}]},
+	   {leaf,channel,[{type,uint8,[{range,[{1,16}],[]}]},
+			  {default,1,[]}]}
+	  ]}
+	]},
+       
+       {'case',sartano,
+	[{container,sartano,
+	  [{leaf,channel,[{type,uint16,[{range,[{1,16#3ff}],[]}]},
+			  {default,1,[]}]}
+	  ]}
+	]},
+
+       {'case',ikea,
+	[{container,ikea,
+	  [{leaf,unit,[{type,uint8,[{range,[{1,16}],[]}]},
+		       {default,1,[]}]},
+	   {leaf,channel,[{type,uint8,[{range,[{1,10}],[]}]},
+			  {default,1,[]}]},
+	   {leaf,dimmer,[{type,boolean,[]},
+			 {default,false,[]}]},
+	   {leaf,style,[{type,enumeration,
+			 [{enum,smooth,[]},
+			  {enum,instant,[]}]},
+			{default,smooth,[]}]}
+	  ]}
+	]},
+
+       {'case',risingsun,
+	[{container,risingsun,
+	  [{leaf,unit,[{type,uint8,[{range,[{1,4}],[]}]},
+		       {default,1,[]}]},
+	   {leaf,channel,[{type,uint8,[{range,[{1,4}],[]}]},
+			  {default,1,[]}]}
+	  ]}
+	]}
+      ]}
+    ].
+
+
