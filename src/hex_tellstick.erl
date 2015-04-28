@@ -78,12 +78,12 @@ output_protocol(waveman, Flags, Env) ->
     Value = (proplists:get_value(value, Env) =:= 1),
     tellstick_server:waveman(Unit,Chan,Value,Flags);
 output_protocol(sartano, Flags, Env) ->
-    Unit = proplists:get_value(unit,Flags,0), %% not used
+    Unit = proplists:get_value(unit,Flags,0),
     Chan = proplists:get_value(channel,Flags),
     Value = (proplists:get_value(value, Env) =:= 1),
     tellstick_server:sartano(Unit,Chan,Value,Flags);
 output_protocol(ikea, Flags, Env) ->
-    Unit = proplists:get_value(unit,Flags), %% not used
+    Unit = proplists:get_value(unit,Flags),
     Chan = proplists:get_value(channel,Flags),
     Value = case proplists:get_value(dimmer, Flags, false) of
 		true ->
@@ -94,7 +94,7 @@ output_protocol(ikea, Flags, Env) ->
     tellstick_server:ikea(Unit,Chan,Value,Flags);
 
 output_protocol(risingsun, Flags, Env) ->
-    Unit = proplists:get_value(unit,Flags,0), %% not used
+    Unit = proplists:get_value(unit,Flags,0),
     Chan = proplists:get_value(channel,Flags),
     Value = (proplists:get_value(value, Env) =:= 1),
     tellstick_server:risingsun(Unit,Chan,Value,Flags).
