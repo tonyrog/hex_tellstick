@@ -25,7 +25,6 @@
 
 -behaviour(gen_server).
 
--include_lib("lager/include/log.hrl").
 %% API
 -export([start_link/0, stop/0]).
 -export([add_event/3, del_event/1]).
